@@ -193,3 +193,236 @@ if "investimento_per_capita" in df_final.columns:
     print(df_final[["codigo_ibge", "investimento_per_capita"]]
           .sort_values(by="investimento_per_capita", ascending=False)
           .head(10))
+
+# DIAGNOSTICO DE QUALIDADE
+print("\n=== QUALIDADE DOS DADOS ===")
+qualidade = pd.DataFrame({
+    "percentual_nulos": df_final.isnull().mean() * 100,
+    "preenchimento": (1 - df_final.isnull().mean()) * 100
+})
+
+qualidade = qualidade.sort_values(
+    by="percentual_nulos",
+    ascending=False
+)
+
+print(qualidade.head(20))
+
+# ESTATISTICAS DESCRITIVAS
+print("\n=== ESTATÍSTICAS DESCRITIVAS ===")
+
+estatisticas = df_final.describe().T
+
+estatisticas[
+    [
+        "count",
+        "mean",
+        "std",
+        "min",
+        "25%",
+        "50%",
+        "75%",
+        "max"
+    ]
+].to_csv("estatisticas_descritivas.csv")
+
+print(estatisticas.head())
+
+# OUTLIERS
+def detectar_outliers(df, coluna):
+
+    q1 = df[coluna].quantile(0.25)
+    q3 = df[coluna].quantile(0.75)
+
+    iqr = q3 - q1
+
+    limite_sup = q3 + 1.5 * iqr
+
+    return df[df[coluna] > limite_sup]
+
+for col in df_final.select_dtypes(
+    include="number"
+).columns[:10]:
+
+    try:
+
+        outliers = detectar_outliers(
+            df_final,
+            col
+        )
+
+        print(
+            f"{col}: {len(outliers)} outliers"
+        )
+
+    except:
+        pass
+
+# CORRELAÇÃO
+import seaborn as sns
+import matplotlib.pyplot as plt
+# CORRELAÇÃO MELHORADA
+nomes_legiveis = {
+
+    "id_faixa":
+        "Faixa Populacional",
+
+    "id_faixa_1":
+        "Faixa Populacional (Infraestrutura)",
+
+    "quantidade_de_poos_de_visita_pv_da_rede_de_drenagem":
+        "Poços de Visita da Rede de Drenagem",
+
+    "rano_gfi1304":
+        "Municípios com Plano de Drenagem",
+
+    "rano_gfi1300":
+        "Mapeamento de Áreas de Risco",
+
+    "rano_gfi1302":
+        "Monitoramento de Áreas de Risco",
+
+    "ge005":
+        "População Urbana",
+
+    "ge005_22853":
+        "População Urbana (Base Complementar)",
+
+    "ge006":
+        "Área Urbanizada",
+
+    "ge006_13792":
+        "Área Urbanizada (Base Complementar)"
+}
+
+corr = (
+    df_final
+    .select_dtypes(include='number')
+    .corr()['investimento_per_capita']
+    .sort_values(ascending=False)
+)
+
+corr = corr.drop('investimento_per_capita')
+
+top_corr = corr.head(10)
+
+top_corr.index = [
+    nomes_legiveis.get(col, col)
+    for col in top_corr.index
+]
+
+plt.figure(figsize=(10,6))
+
+corr.head(10).sort_values().plot(kind='barh')
+
+plt.title(
+    "Top Correlações com Investimento Per Capita",
+    fontsize=14
+)
+
+plt.xlabel("Correlação")
+plt.tight_layout()
+
+plt.savefig(
+    "correlacoes_investimento.png",
+    dpi=300
+)
+
+plt.show()
+
+# GRAFICO KPI
+top10 = (
+    df_final[
+        [
+            "codigo_ibge",
+            "investimento_per_capita"
+        ]
+    ]
+    .sort_values(
+        by="investimento_per_capita",
+        ascending=False
+    )
+    .head(10)
+)
+
+plt.figure(figsize=(10,5))
+
+plt.bar(
+    top10["codigo_ibge"],
+    top10["investimento_per_capita"]
+)
+
+plt.xticks(rotation=90)
+
+plt.title(
+    "Top 10 Municípios por Investimento Per Capita"
+)
+
+plt.tight_layout()
+
+plt.savefig(
+    "top10_investimento.png"
+)
+
+plt.close()
+
+# RELATORIO FINAL
+print("\n======================")
+print("ANÁLISE CONCLUÍDA")
+print("======================")
+
+print(
+    f"Municípios analisados: {len(df_final)}"
+)
+
+print(
+    f"Variáveis finais: {len(df_final.columns)}"
+)
+
+print(
+    f"Percentual médio de preenchimento: "
+    f"{(1-df_final.isnull().mean().mean())*100:.2f}%"
+)
+
+# ===========
+# MUNICIPIOS COM MAIOR INVESTIMENTO PER CAPITA
+# ============
+
+col_municipio = "nome_mun"
+
+top10 = (
+    df_final[
+        [
+            col_municipio,
+            "investimento_per_capita"
+        ]
+    ]
+    .dropna()
+    .sort_values(
+        by="investimento_per_capita",
+        ascending=False
+    )
+    .head(10)
+)
+plt.figure(figsize=(10,6))
+
+df_final["investimento_per_capita"].hist(
+    bins=30
+)
+
+plt.title(
+    "Distribuição do Investimento Per Capita"
+)
+
+plt.xlabel("Investimento Per Capita (R$)")
+plt.ylabel("Quantidade de Municípios")
+
+plt.tight_layout()
+
+plt.savefig(
+    "distribuicao_investimento.png",
+    dpi=300
+)
+
+plt.show()
+
